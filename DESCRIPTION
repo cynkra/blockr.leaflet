@@ -1,0 +1,19 @@
+Package: blockr.leaflet
+Title: Leaflet Map Blocks for 'blockr'
+Version: 0.0.1
+Authors@R:
+    person("David", "Granjon", , "david@cynkra.com", role = c("aut", "cre"))
+Description: Extends 'blockr.core' with interactive blocks for displaying
+    GPS routes and geographic data on Leaflet maps. Provides a route map
+    block with configurable line styling.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    blockr.core (>= 0.1.1),
+    colourpicker,
+    leaflet,
+    shiny
+Remotes:
+    BristolMyersSquibb/blockr.core
