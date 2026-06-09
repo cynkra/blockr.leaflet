@@ -3,12 +3,18 @@
 #' A block that drops one circle marker per row of the input data on an
 #' interactive Leaflet map. Expects a data frame with `lat` and `lng` columns
 #' and labels each marker with the `label` column (e.g. put each cat breed on
-#' its country of origin). Overlapping points can be clustered.
+#' its country of origin). Overlapping points can be clustered, or coloured by a
+#' grouping column (`color_by`) to make one group stand out among the others.
 #'
 #' @param label Name of the column used to label markers. Defaults to `"name"`.
-#' @param color Marker colour (hex string). Defaults to `"#2c7fb8"`.
+#' @param color Marker colour (hex string), used when `color_by` is unset.
+#'   Defaults to `"#2c7fb8"`.
 #' @param radius Marker radius in pixels. Defaults to `7`.
-#' @param cluster Cluster overlapping markers? Defaults to `TRUE`.
+#' @param cluster Cluster overlapping markers? Ignored when `color_by` is set.
+#'   Defaults to `TRUE`.
+#' @param color_by Optional column whose values colour the markers (a legend is
+#'   added and the smallest groups are drawn on top, so a highlighted breed is
+#'   not hidden under the others). Defaults to none.
 #' @param ... Additional arguments passed to [blockr.core::new_block()].
 #'
 #' @return A block object of class `leaflet_markers_block`.
@@ -23,12 +29,17 @@ new_leaflet_markers_block <- function(
   color = "#2c7fb8",
   radius = 7,
   cluster = TRUE,
+  color_by = character(),
   ...
 ) {
+  color_by <- if (length(color_by)) color_by else "(none)"
+
   ui_fn <- function(id) {
     ns <- NS(id)
     tagList(
       selectInput(ns("label"), "Label column", choices = label, selected = label),
+      selectInput(ns("color_by"), "Colour by", choices = c("(none)", color_by),
+                  selected = color_by),
       colourpicker::colourInput(ns("color"), "Marker colour", value = color),
       sliderInput(
         ns("radius"),
@@ -48,6 +59,7 @@ new_leaflet_markers_block <- function(
       r_color <- reactiveVal(color)
       r_radius <- reactiveVal(radius)
       r_cluster <- reactiveVal(cluster)
+      r_color_by <- reactiveVal(color_by)
 
       observeEvent(data(), {
         cols <- names(data())
@@ -57,43 +69,81 @@ new_leaflet_markers_block <- function(
           choices = cols,
           selected = if (r_label() %in% cols) r_label() else cols[1]
         )
+        updateSelectInput(
+          session,
+          "color_by",
+          choices = c("(none)", cols),
+          selected = if (r_color_by() %in% cols) r_color_by() else "(none)"
+        )
       })
 
       observeEvent(input$label, r_label(input$label))
       observeEvent(input$color, r_color(input$color))
       observeEvent(input$radius, r_radius(input$radius))
       observeEvent(input$cluster, r_cluster(input$cluster))
+      observeEvent(input$color_by, r_color_by(input$color_by))
 
       list(
         expr = reactive({
           col <- r_color()
           rad <- r_radius()
           lab <- as.name(r_label())
-          clus <- if (isTRUE(r_cluster())) {
-            quote(leaflet::markerClusterOptions())
+          cby <- r_color_by()
+
+          if (isTruthy_col(cby)) {
+            bquote(
+              local({
+                .d <- data
+                .g <- as.factor(.d[[.(cby)]])
+                # draw the smallest groups last, so a highlighted breed sits
+                # on top of the crowd sharing its country
+                .ord <- order(stats::ave(seq_len(nrow(.d)), .g, FUN = length),
+                              decreasing = TRUE)
+                .d <- .d[.ord, ]
+                .g <- .g[.ord]
+                .pal <- leaflet::colorFactor("Set1", .g)
+                leaflet::leaflet(.d) |>
+                  leaflet::addTiles() |>
+                  leaflet::addCircleMarkers(
+                    lat = ~lat,
+                    lng = ~lng,
+                    label = ~as.character(.(lab)),
+                    radius = .(rad),
+                    color = .pal(.g),
+                    stroke = FALSE,
+                    fillOpacity = 0.85
+                  ) |>
+                  leaflet::addLegend(pal = .pal, values = .g, title = .(cby))
+              })
+            )
           } else {
-            NULL
+            clus <- if (isTRUE(r_cluster())) {
+              quote(leaflet::markerClusterOptions())
+            } else {
+              NULL
+            }
+            bquote(
+              leaflet::leaflet(data) |>
+                leaflet::addTiles() |>
+                leaflet::addCircleMarkers(
+                  lat = ~lat,
+                  lng = ~lng,
+                  label = ~as.character(.(lab)),
+                  radius = .(rad),
+                  color = .(col),
+                  stroke = FALSE,
+                  fillOpacity = 0.8,
+                  clusterOptions = .(clus)
+                )
+            )
           }
-          bquote(
-            leaflet::leaflet(data) |>
-              leaflet::addTiles() |>
-              leaflet::addCircleMarkers(
-                lat = ~lat,
-                lng = ~lng,
-                label = ~as.character(.(lab)),
-                radius = .(rad),
-                color = .(col),
-                stroke = FALSE,
-                fillOpacity = 0.8,
-                clusterOptions = .(clus)
-              )
-          )
         }),
         state = list(
           label = r_label,
           color = r_color,
           radius = r_radius,
-          cluster = r_cluster
+          cluster = r_cluster,
+          color_by = r_color_by
         )
       )
     })
@@ -112,6 +162,11 @@ new_leaflet_markers_block <- function(
     },
     ...
   )
+}
+
+# A colour-by selection is active only when it names a real column.
+isTruthy_col <- function(x) {
+  length(x) == 1L && nzchar(x) && !identical(x, "(none)")
 }
 
 #' @importFrom blockr.core block_output

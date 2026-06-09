@@ -9,17 +9,24 @@ new_leaflet_markers_block(
   color = "#2c7fb8",
   radius = 7,
   cluster = TRUE,
+  color_by = character(),
   ...
 )
 }
 \arguments{
 \item{label}{Name of the column used to label markers. Defaults to \code{"name"}.}
 
-\item{color}{Marker colour (hex string). Defaults to \code{"#2c7fb8"}.}
+\item{color}{Marker colour (hex string), used when \code{color_by} is unset.
+Defaults to \code{"#2c7fb8"}.}
 
 \item{radius}{Marker radius in pixels. Defaults to \code{7}.}
 
-\item{cluster}{Cluster overlapping markers? Defaults to \code{TRUE}.}
+\item{cluster}{Cluster overlapping markers? Ignored when \code{color_by} is set.
+Defaults to \code{TRUE}.}
+
+\item{color_by}{Optional column whose values colour the markers (a legend is
+added and the smallest groups are drawn on top, so a highlighted breed is
+not hidden under the others). Defaults to none.}
 
 \item{...}{Additional arguments passed to \code{\link[blockr.core:new_block]{blockr.core::new_block()}}.}
 }
@@ -30,5 +37,6 @@ A block object of class \code{leaflet_markers_block}.
 A block that drops one circle marker per row of the input data on an
 interactive Leaflet map. Expects a data frame with \code{lat} and \code{lng} columns
 and labels each marker with the \code{label} column (e.g. put each cat breed on
-its country of origin). Overlapping points can be clustered.
+its country of origin). Overlapping points can be clustered, or coloured by a
+grouping column (\code{color_by}) to make one group stand out among the others.
 }
