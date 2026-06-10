@@ -12,9 +12,12 @@
 #' @param radius Marker radius in pixels. Defaults to `7`.
 #' @param cluster Cluster overlapping markers? Ignored when `color_by` is set.
 #'   Defaults to `TRUE`.
-#' @param color_by Optional column whose values colour the markers (a legend is
-#'   added and the smallest groups are drawn on top, so a highlighted breed is
-#'   not hidden under the others). Defaults to none.
+#' @param color_by Optional column whose values colour the markers, with a
+#'   legend. A categorical column uses a discrete palette (and the smallest
+#'   groups are drawn on top, so a highlighted breed is not hidden under the
+#'   others); a numeric column uses a continuous `viridis` scale, so a value
+#'   (life span, weight, ...) can be read off the map by position. Defaults to
+#'   none.
 #' @param ... Additional arguments passed to [blockr.core::new_block()].
 #'
 #' @return A block object of class `leaflet_markers_block`.
@@ -90,11 +93,46 @@ new_leaflet_markers_block <- function(
           lab <- as.name(r_label())
           cby <- r_color_by()
 
-          if (isTruthy_col(cby)) {
+          use_col <- isTruthy_col(cby) && cby %in% names(data())
+          # A binary 0/1 flag is stored as numeric but is really categorical, so
+          # only treat a numeric column with more than two distinct values as
+          # continuous; everything else gets the discrete palette.
+          is_num <- use_col && is.numeric(data()[[cby]]) &&
+            length(unique(stats::na.omit(data()[[cby]]))) > 2
+
+          if (is_num) {
+            # numeric column: continuous viridis scale, gradient legend
             bquote(
               local({
                 .d <- data
-                .g <- as.factor(.d[[.(cby)]])
+                .v <- .d[[.(cby)]]
+                .pal <- leaflet::colorNumeric("viridis", .v,
+                                              na.color = "#cccccc")
+                leaflet::leaflet(.d) |>
+                  leaflet::addTiles() |>
+                  leaflet::addCircleMarkers(
+                    lat = ~lat,
+                    lng = ~lng,
+                    label = ~paste0(as.character(.(lab)), ": ", .v),
+                    radius = .(rad),
+                    color = .pal(.v),
+                    stroke = FALSE,
+                    fillOpacity = 0.85
+                  ) |>
+                  leaflet::addLegend(pal = .pal, values = .v, title = .(cby))
+              })
+            )
+          } else if (use_col) {
+            bquote(
+              local({
+                .d <- data
+                .raw <- .d[[.(cby)]]
+                # a 0/1 numeric flag reads better as TRUE/FALSE in the legend
+                .g <- if (is.numeric(.raw) && all(.raw %in% c(0, 1, NA))) {
+                  factor(.raw == 1, levels = c(FALSE, TRUE))
+                } else {
+                  as.factor(.raw)
+                }
                 # draw the smallest groups last, so a highlighted breed sits
                 # on top of the crowd sharing its country
                 .ord <- order(stats::ave(seq_len(nrow(.d)), .g, FUN = length),
