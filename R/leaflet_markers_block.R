@@ -139,7 +139,15 @@ new_leaflet_markers_block <- function(
                               decreasing = TRUE)
                 .d <- .d[.ord, ]
                 .g <- .g[.ord]
-                .pal <- leaflet::colorFactor("Set1", .g)
+                # Okabe-Ito (colourblind-safe), used discretely (exactly one
+                # colour per level, no interpolation). The first level gets the
+                # vermillion standout and the second a muted grey, so a
+                # highlighted group pops against the rest.
+                .cb <- c("#D55E00", "#999999", "#56B4E9", "#009E73",
+                         "#E69F00", "#CC79A7", "#0072B2", "#F0E442")
+                .pal <- leaflet::colorFactor(
+                  .cb[seq_len(nlevels(.g))], .g
+                )
                 leaflet::leaflet(.d) |>
                   leaflet::addTiles() |>
                   leaflet::addCircleMarkers(
