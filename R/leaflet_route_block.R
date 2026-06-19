@@ -6,6 +6,12 @@
 #' @param color Line colour (hex string). Defaults to `"#000000"`.
 #' @param weight Line weight in pixels. Defaults to `3`.
 #' @param opacity Line opacity between 0 and 1. Defaults to `0.8`.
+#' @param pois Optional gazetteer of points of interest with `name`,
+#'   `lat`, `lng`, and (optionally) `type` columns. Each is snapped to
+#'   the nearest point of the route and shown as a coloured marker;
+#'   those further than `snap_tol_m` are dropped (see [snap_pois()]).
+#' @param snap_tol_m Maximum distance (m) from the route to keep a POI.
+#'   Defaults to `1200`.
 #' @param ... Additional arguments passed to [blockr.core::new_block()].
 #'
 #' @return A block object of class `leaflet_route_block`.
@@ -19,6 +25,8 @@ new_leaflet_route_block <- function(
   color = "#000000",
   weight = 3,
   opacity = 0.8,
+  pois = NULL,
+  snap_tol_m = 1200,
   ...
 ) {
   ui_fn <- function(id) {
@@ -48,6 +56,9 @@ new_leaflet_route_block <- function(
       r_color <- reactiveVal(color)
       r_weight <- reactiveVal(weight)
       r_opacity <- reactiveVal(opacity)
+      # Non-UI parameters, kept in state so the block round-trips.
+      r_pois <- reactiveVal(pois)
+      r_tol <- reactiveVal(snap_tol_m)
 
       observeEvent(input$color, r_color(input$color))
       observeEvent(input$weight, r_weight(input$weight))
@@ -58,8 +69,10 @@ new_leaflet_route_block <- function(
           col <- r_color()
           wt <- r_weight()
           op <- r_opacity()
-          bquote(
-            leaflet::leaflet() |>
+          pois <- r_pois()
+          snap_tol_m <- r_tol()
+          bquote({
+            .map <- leaflet::leaflet() |>
               leaflet::addTiles() |>
               leaflet::addPolylines(
                 data = data[, c("lat", "lng")],
@@ -69,12 +82,32 @@ new_leaflet_route_block <- function(
                 weight = .(wt),
                 opacity = .(op)
               )
-          )
+            .pts <- blockr.leaflet::snap_pois(.(pois), data, tol_m = .(tol))
+            if (!is.null(.pts)) {
+              .map <- leaflet::addCircleMarkers(
+                .map,
+                data = .pts,
+                lat = ~lat,
+                lng = ~lng,
+                radius = 6,
+                stroke = TRUE,
+                color = "#ffffff",
+                weight = 2,
+                fillColor = ~color,
+                fillOpacity = 1,
+                popup = ~label,
+                label = ~label
+              )
+            }
+            .map
+          }, list(col = col, wt = wt, op = op, pois = pois, tol = snap_tol_m))
         }),
         state = list(
           color = r_color,
           weight = r_weight,
-          opacity = r_opacity
+          opacity = r_opacity,
+          pois = r_pois,
+          snap_tol_m = r_tol
         )
       )
     })

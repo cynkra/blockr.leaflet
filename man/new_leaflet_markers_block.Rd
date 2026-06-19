@@ -24,9 +24,12 @@ Defaults to \code{"#2c7fb8"}.}
 \item{cluster}{Cluster overlapping markers? Ignored when \code{color_by} is set.
 Defaults to \code{TRUE}.}
 
-\item{color_by}{Optional column whose values colour the markers (a legend is
-added and the smallest groups are drawn on top, so a highlighted breed is
-not hidden under the others). Defaults to none.}
+\item{color_by}{Optional column whose values colour the markers, with a
+legend. A categorical column uses a discrete palette (and the smallest
+groups are drawn on top, so a highlighted breed is not hidden under the
+others); a numeric column uses a continuous \code{viridis} scale, so a value
+(life span, weight, ...) can be read off the map by position. Defaults to
+none.}
 
 \item{...}{Additional arguments passed to \code{\link[blockr.core:new_block]{blockr.core::new_block()}}.}
 }

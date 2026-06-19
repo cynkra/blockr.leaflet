@@ -4,7 +4,14 @@
 \alias{new_leaflet_route_block}
 \title{Create a Leaflet Route Map Block}
 \usage{
-new_leaflet_route_block(color = "#000000", weight = 3, opacity = 0.8, ...)
+new_leaflet_route_block(
+  color = "#000000",
+  weight = 3,
+  opacity = 0.8,
+  pois = NULL,
+  snap_tol_m = 1200,
+  ...
+)
 }
 \arguments{
 \item{color}{Line colour (hex string). Defaults to \code{"#000000"}.}
@@ -12,6 +19,14 @@ new_leaflet_route_block(color = "#000000", weight = 3, opacity = 0.8, ...)
 \item{weight}{Line weight in pixels. Defaults to \code{3}.}
 
 \item{opacity}{Line opacity between 0 and 1. Defaults to \code{0.8}.}
+
+\item{pois}{Optional gazetteer of points of interest with \code{name},
+\code{lat}, \code{lng}, and (optionally) \code{type} columns. Each is snapped to
+the nearest point of the route and shown as a coloured marker;
+those further than \code{snap_tol_m} are dropped (see \code{\link[=snap_pois]{snap_pois()}}).}
+
+\item{snap_tol_m}{Maximum distance (m) from the route to keep a POI.
+Defaults to \code{1200}.}
 
 \item{...}{Additional arguments passed to \code{\link[blockr.core:new_block]{blockr.core::new_block()}}.}
 }
